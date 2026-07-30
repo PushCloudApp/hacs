@@ -1,0 +1,12 @@
+{
+  "domain": "pushcloud",
+  "name": "PushCloud",
+  "codeowners": ["@BobzTH"],
+  "config_flow": true,
+  "documentation": "https://github.com/BobzTH/PushCloud-HACS",
+  "integration_type": "service",
+  "iot_class": "cloud_push",
+  "issue_tracker": "https://github.com/BobzTH/PushCloud-HACS/issues",
+  "requirements": [],
+  "version": "1.0.0"
+}

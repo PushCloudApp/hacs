@@ -1,0 +1,22 @@
+name: HACS validation
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 4 * * 1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # The icons ship in custom_components/pushcloud/brand/, which Home
+          # Assistant 2026.3 and later prefer over the CDN. This check asks the
+          # CDN instead, so it can only pass once the domain is merged into
+          # home-assistant/brands, a separate repo. Ignored so CI is not red on
+          # something no commit here can fix.
+          ignore: brands

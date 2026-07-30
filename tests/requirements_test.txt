@@ -1,0 +1,9 @@
+# Test-only. These never appear in manifest.json's `requirements`: the
+# integration itself has no third-party runtime dependency, because the client
+# borrows Home Assistant's shared aiohttp session.
+#
+# pytest-homeassistant-custom-component pins a matching Home Assistant and its
+# whole pytest plugin stack, so the version here is effectively the version of
+# Home Assistant these tests run against.
+pytest-homeassistant-custom-component
+aioresponses

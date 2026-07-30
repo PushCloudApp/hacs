@@ -1,0 +1,16 @@
+name: Validate with hassfest
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Home Assistant's own rules move. A weekly run catches a manifest that
+    # became invalid without this repo changing at all.
+    - cron: "0 4 * * 1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
