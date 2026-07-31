@@ -62,6 +62,26 @@ async def test_user_flow_creates_an_entry_titled_from_the_endpoint(
     assert result["result"].unique_id == APP_ID
 
 
+async def test_a_pasted_token_is_trimmed_before_it_is_used(
+    hass: HomeAssistant, mock_get_application: AsyncMock
+) -> None:
+    """Copying out of the panel picks up whitespace more often than not.
+
+    Sent as pasted it comes back 401, and the form says the token is wrong
+    while showing a token that is entirely right.
+    """
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"token": f"  {TOKEN}\n"}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"]["token"] == TOKEN
+
+
 async def test_invalid_token_shows_an_error_and_lets_the_user_retry(
     hass: HomeAssistant, mock_get_application: AsyncMock
 ) -> None:

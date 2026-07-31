@@ -15,7 +15,7 @@ from homeassistant.components.notify import (
     ATTR_TITLE,
     BaseNotificationService,
 )
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -44,7 +44,14 @@ async def async_get_service(
         return None
 
     entry = hass.config_entries.async_get_entry(discovery_info["entry_id"])
-    if entry is None:
+    if entry is None or entry.state is not ConfigEntryState.LOADED:
+        # This runs two tasks removed from `async_setup_entry`: the load is
+        # scheduled there and dispatches into a task of its own. An entry
+        # unloaded or removed inside that window gets here with its
+        # `runtime_data` already taken away, and the assignment below would
+        # raise into the notify platform's error handling - a traceback in the
+        # log blaming the integration for a reload the user was entitled to
+        # make. There is nothing to serve, so serve nothing.
         return None
 
     service = PushCloudNotificationService(entry)

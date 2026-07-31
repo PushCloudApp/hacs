@@ -54,6 +54,14 @@ install **PushCloud** → restart.
 To send as a second application, add the integration again with that
 application's token. Each entry gets its own notify service.
 
+Two applications named the same thing would want the same service name, so the
+one added later takes a short piece of its application id instead:
+`notify.pushcloud_home_assistant_zzz999`. The name it ends up with is written to
+the log as a warning. Whichever application was added first keeps the plain
+name, so automations already written against it carry on working. Renaming
+either application in the PushCloud panel and reloading gives both a plain name
+again.
+
 ### Why a token and not an API key
 
 The integration asks for an application token, which can do exactly two things:

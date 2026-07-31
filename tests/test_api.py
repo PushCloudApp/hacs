@@ -189,3 +189,31 @@ async def test_unparseable_error_body_still_raises(client: PushCloudClient) -> N
         mocked.get(APPLICATIONS_ME_URL, status=401, body="<html>nope</html>")
         with pytest.raises(PushCloudAuthError):
             await client.async_get_application()
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"body": "<html>hello from your captive portal</html>"},
+        {"payload": {}},
+        {"payload": {"application": None}},
+        {"payload": {"application": "app_abc123"}},
+        {"payload": {"application": {"name": APP_NAME}}},
+        {"payload": {"application": {"id": APP_ID}}},
+        {"payload": {"application": {"id": 17, "name": APP_NAME}}},
+    ],
+)
+async def test_a_200_of_the_wrong_shape_is_a_connection_error(
+    client: PushCloudClient, response: dict
+) -> None:
+    """Success is a status *and* a body. Neither alone is enough.
+
+    Everything above is a 200 that no amount of retrying will make useful right
+    now, and none of it is a reason to send the user back to the token field.
+    What it must never be is a KeyError or a TypeError: this module's whole
+    contract is that callers see the exceptions defined here and nothing else.
+    """
+    with aioresponses() as mocked:
+        mocked.get(APPLICATIONS_ME_URL, status=200, **response)
+        with pytest.raises(PushCloudConnectionError):
+            await client.async_get_application()

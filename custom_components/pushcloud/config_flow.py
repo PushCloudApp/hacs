@@ -58,7 +58,12 @@ class PushCloudConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            token = user_input[CONF_TOKEN]
+            # Trimmed, not validated. A token copied out of the panel arrives
+            # with a trailing space or newline often enough that the alternative
+            # is a rejection the user cannot see the cause of, every character
+            # on screen looking exactly right. What a *live* token is remains
+            # the server's business.
+            token = user_input[CONF_TOKEN].strip()
             if (application := await self._async_identify(token, errors)) is not None:
                 # The application id, not the token: rotating a token must not
                 # let the same application be added a second time.
@@ -91,7 +96,7 @@ class PushCloudConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self._get_reauth_entry()
 
         if user_input is not None:
-            token = user_input[CONF_TOKEN]
+            token = user_input[CONF_TOKEN].strip()
             if (application := await self._async_identify(token, errors)) is not None:
                 # A token for a different application would quietly repoint
                 # every automation using this service at another destination.

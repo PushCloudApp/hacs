@@ -83,7 +83,20 @@ class PushCloudClient:
         checked any other way without actually notifying somebody.
         """
         data = await self._request("get", APPLICATIONS_ME_URL)
-        application = data["application"]
+        application = data.get("application")
+
+        # A 200 is not a promise of the right shape. A captive portal, a proxy,
+        # or an edge that is halfway through a deploy all answer 200 with
+        # something else entirely, and `_body` has already flattened anything
+        # unparseable to `{}`. Indexing straight into that would put a KeyError
+        # through callers this module promised only its own exceptions to.
+        if not isinstance(application, dict) or not all(
+            isinstance(application.get(field), str) for field in ("id", "name")
+        ):
+            raise PushCloudConnectionError(
+                "PushCloud answered without naming an application"
+            )
+
         return Application(id=application["id"], name=application["name"])
 
     async def async_send(self, payload: dict[str, Any]) -> None:

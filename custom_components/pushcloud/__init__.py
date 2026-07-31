@@ -7,6 +7,7 @@ it was added for, then loads the single notify service that entry provides.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from homeassistant.components.notify import BaseNotificationService
@@ -19,11 +20,19 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import discovery
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import slugify
 
 from .api import Application, PushCloudAuthError, PushCloudClient, PushCloudError
 from .const import DATA_HASS_CONFIG, DOMAIN
 
+_LOGGER = logging.getLogger(__name__)
+
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+# How much of an application id is borrowed to tell two same-named applications
+# apart. Long enough to be unique in any account a person actually has, short
+# enough to type into an automation.
+_DISAMBIGUATOR_LENGTH = 6
 
 
 @dataclass
@@ -50,6 +59,46 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """
     hass.data[DATA_HASS_CONFIG] = config
     return True
+
+
+def _platform_name(
+    hass: HomeAssistant, entry: PushCloudConfigEntry, application: Application
+) -> str:
+    """The name the legacy notify platform slugifies into the service name.
+
+    Application names are not unique, and two different ones can still slugify
+    to a single service: `Home Assistant` and `Home-Assistant` both want
+    `notify.pushcloud_home_assistant`. The legacy platform registers whichever
+    claim arrives first and returns silently on the second, so the loser would
+    have no service at all and no log line saying why.
+
+    The oldest entry keeps the plain name, so automations written against it go
+    on working when a colliding application is added years later. Anything that
+    collides with it is told apart by the tail of its application id, which is
+    stable across renames and restarts where the name is neither.
+    """
+    preferred = f"PushCloud: {application.name}"
+    slug = slugify(preferred)
+
+    rivals = [
+        other
+        for other in hass.config_entries.async_entries(DOMAIN)
+        if other.entry_id != entry.entry_id
+        and slugify(f"PushCloud: {other.data.get(CONF_NAME, '')}") == slug
+    ]
+    if not rivals or all(entry.created_at < other.created_at for other in rivals):
+        return preferred
+
+    disambiguated = f"{preferred} {slugify(application.id)[-_DISAMBIGUATOR_LENGTH:]}"
+    _LOGGER.warning(
+        "Another PushCloud application already answers to notify.%s, so %s sends"
+        " through notify.%s instead. Renaming one of them in the PushCloud panel"
+        " and reloading gives both a plain name again",
+        slug,
+        application.name,
+        slugify(disambiguated),
+    )
+    return disambiguated
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PushCloudConfigEntry) -> bool:
@@ -85,9 +134,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: PushCloudConfigEntry) ->
             DOMAIN,
             # `name` is what the legacy platform slugifies into the service
             # name, so this string is the one users type into automations.
-            {CONF_NAME: f"PushCloud: {application.name}", "entry_id": entry.entry_id},
+            {
+                CONF_NAME: _platform_name(hass, entry, application),
+                "entry_id": entry.entry_id,
+            },
             hass.data[DATA_HASS_CONFIG],
-        )
+        ),
+        # Not eagerly, which is the default. This platform reaches
+        # `notify.async_get_service`, and that reads the `runtime_data` set
+        # above - an eager start would make the order of these two statements
+        # load-bearing with nothing here to say so. Deferring by a tick is also
+        # what setup does on a real start, where the notify component is not
+        # loaded yet and the load has to wait for it either way.
+        eager_start=False,
     )
 
     return True
@@ -107,6 +166,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: PushCloudConfigEntry) -
     service back that points at an entry which no longer exists. One entry's
     service goes; every other entry's survives, which matters here because one
     entry per application means several are normal.
+
+    An entry unloaded while its platform is still loading has no service here
+    yet, and needs none: `async_get_service` checks the entry is still loaded
+    before it builds one, so a load arriving late bows out instead of reaching
+    for the `runtime_data` this unload has already taken away.
     """
     if (service := entry.runtime_data.service) is not None:
         await service.async_unregister_services()
