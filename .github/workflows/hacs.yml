@@ -13,10 +13,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
         with:
+          # Nothing ignored. The brands check used to be, because it asked the
+          # CDN and the icons only ever existed in custom_components/pushcloud/
+          # brand/ - so it could not pass until the domain was merged into
+          # home-assistant/brands. That repo stopped accepting custom
+          # integrations with Home Assistant 2026.3, which ships local brand
+          # directories instead, and HACS now accepts them too. Verified by
+          # running this check without the ignore before removing it.
           category: integration
-          # The icons ship in custom_components/pushcloud/brand/, which Home
-          # Assistant 2026.3 and later prefer over the CDN. This check asks the
-          # CDN instead, so it can only pass once the domain is merged into
-          # home-assistant/brands, a separate repo. Ignored so CI is not red on
-          # something no commit here can fix.
-          ignore: brands
