@@ -3,10 +3,10 @@
   "name": "PushCloud",
   "codeowners": ["@BobzTH"],
   "config_flow": true,
-  "documentation": "https://github.com/BobzTH/PushCloud-HACS",
+  "documentation": "https://github.com/PushCloudApp/hacs",
   "integration_type": "service",
   "iot_class": "cloud_push",
-  "issue_tracker": "https://github.com/BobzTH/PushCloud-HACS/issues",
+  "issue_tracker": "https://github.com/PushCloudApp/hacs/issues",
   "requirements": [],
   "version": "1.0.0"
 }
