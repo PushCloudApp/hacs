@@ -102,6 +102,7 @@ async def test_invalid_token_shows_an_error_and_lets_the_user_retry(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"token": TOKEN}
     )
+    await hass.async_block_till_done()
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
@@ -161,6 +162,12 @@ async def test_a_second_application_can_be_added(
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"token": OTHER_TOKEN}
     )
+    # Creating the entry sets it up in the background, which loads the notify
+    # platform. Without waiting, the test can finish first and the platform
+    # then resolves against a Home Assistant already in its shutdown stage -
+    # which surfaces as an InvalidStateError against this test, on a slow
+    # runner, and never on a fast one. The other flows here already wait.
+    await hass.async_block_till_done()
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "PushCloud: Grafana"
