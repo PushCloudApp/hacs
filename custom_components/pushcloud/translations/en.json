@@ -1,0 +1,35 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This PushCloud application is already set up.",
+      "reauth_successful": "Re-authentication was successful",
+      "wrong_application": "That token belongs to a different PushCloud application. Enter a token for this one, or add the other application separately."
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "That application token was not accepted. Check it has not been rotated.",
+      "unknown": "Unexpected error"
+    },
+    "step": {
+      "reauth_confirm": {
+        "data": {
+          "token": "Application token"
+        },
+        "data_description": {
+          "token": "The new token for this application, from its page in the PushCloud panel."
+        },
+        "description": "The application token is no longer accepted. Enter the current one.",
+        "title": "Re-authenticate integration"
+      },
+      "user": {
+        "data": {
+          "token": "Application token"
+        },
+        "data_description": {
+          "token": "The token beginning pca_, copied from the application's page in the PushCloud panel. One Home Assistant entry sends to one application."
+        },
+        "description": "Notifications are sent to the phones signed in to your PushCloud account."
+      }
+    }
+  }
+}

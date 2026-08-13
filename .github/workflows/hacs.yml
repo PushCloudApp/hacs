@@ -1,0 +1,23 @@
+name: HACS validation
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 4 * * 1"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          # Nothing ignored. The brands check used to be, because it asked the
+          # CDN and the icons only ever existed in custom_components/pushcloud/
+          # brand/ - so it could not pass until the domain was merged into
+          # home-assistant/brands. That repo stopped accepting custom
+          # integrations with Home Assistant 2026.3, which ships local brand
+          # directories instead, and HACS now accepts them too. Verified by
+          # running this check without the ignore before removing it.
+          category: integration
