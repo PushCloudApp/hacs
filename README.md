@@ -1,9 +1,9 @@
 # PushCloud for Home Assistant
 
 [![HACS: custom](https://img.shields.io/badge/HACS-custom-41BDF5.svg)](https://hacs.xyz)
-[![hassfest](https://github.com/BobzTH/PushCloud-HACS/actions/workflows/hassfest.yml/badge.svg)](https://github.com/BobzTH/PushCloud-HACS/actions/workflows/hassfest.yml)
-[![HACS validation](https://github.com/BobzTH/PushCloud-HACS/actions/workflows/hacs.yml/badge.svg)](https://github.com/BobzTH/PushCloud-HACS/actions/workflows/hacs.yml)
-[![Tests](https://github.com/BobzTH/PushCloud-HACS/actions/workflows/tests.yml/badge.svg)](https://github.com/BobzTH/PushCloud-HACS/actions/workflows/tests.yml)
+[![hassfest](https://github.com/PushCloudApp/PushCloud-HACS/actions/workflows/hassfest.yml/badge.svg)](https://github.com/PushCloudApp/PushCloud-HACS/actions/workflows/hassfest.yml)
+[![HACS validation](https://github.com/PushCloudApp/PushCloud-HACS/actions/workflows/hacs.yml/badge.svg)](https://github.com/PushCloudApp/PushCloud-HACS/actions/workflows/hacs.yml)
+[![Tests](https://github.com/PushCloudApp/PushCloud-HACS/actions/workflows/tests.yml/badge.svg)](https://github.com/PushCloudApp/PushCloud-HACS/actions/workflows/tests.yml)
 
 Send [PushCloud](https://pushcloud.app) notifications from Home Assistant
 automations.
@@ -24,7 +24,7 @@ Notifications land on every phone signed in to your PushCloud account.
 
 ## Install
 
-[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=BobzTH&repository=PushCloud-HACS&category=integration)
+[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=PushCloudApp&repository=PushCloud-HACS&category=integration)
 
 That button opens this repository inside HACS on your own Home Assistant. Press
 **Download**, then restart Home Assistant.
@@ -33,7 +33,7 @@ That button opens this repository inside HACS on your own Home Assistant. Press
 <summary>By hand, if the button does not work</summary>
 
 **HACS**: HACS → three-dot menu → **Custom repositories** → add
-`https://github.com/BobzTH/PushCloud-HACS` with category **Integration** →
+`https://github.com/PushCloudApp/PushCloud-HACS` with category **Integration** →
 install **PushCloud** → restart.
 
 **Without HACS**: copy `custom_components/pushcloud` into your
