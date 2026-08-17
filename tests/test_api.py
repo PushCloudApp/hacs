@@ -12,6 +12,7 @@ import pytest
 from aioresponses import aioresponses
 
 from custom_components.pushcloud.api import (
+    APPLICATION_DEVICES_URL,
     APPLICATIONS_ME_URL,
     MESSAGES_URL,
     PushCloudAuthError,
@@ -217,3 +218,151 @@ async def test_a_200_of_the_wrong_shape_is_a_connection_error(
         mocked.get(APPLICATIONS_ME_URL, status=200, **response)
         with pytest.raises(PushCloudConnectionError):
             await client.async_get_application()
+
+
+async def test_list_devices_returns_the_targets_in_order(
+    client: PushCloudClient,
+) -> None:
+    """The device list, as the options flow draws it into a picker."""
+    with aioresponses() as mocked:
+        mocked.get(
+            APPLICATION_DEVICES_URL,
+            payload={
+                "devices": [
+                    {
+                        "id": "dev_1",
+                        "name": "Bobby's iPhone",
+                        "slug": "bobbys-iphone",
+                        "platform": "ios",
+                    },
+                    {
+                        "id": "dev_2",
+                        "name": "Study Mac",
+                        "slug": "study-mac",
+                        "platform": "web",
+                    },
+                ]
+            },
+        )
+        devices = await client.async_list_devices()
+
+    # Server order, not re-sorted here: it already orders by slug, and a second
+    # opinion about ordering is a second thing to keep in step.
+    assert [device.slug for device in devices] == ["bobbys-iphone", "study-mac"]
+    assert devices[0].name == "Bobby's iPhone"
+    assert devices[0].id == "dev_1"
+
+
+async def test_a_device_targets_by_slug_and_falls_back_to_its_id(
+    client: PushCloudClient,
+) -> None:
+    """`slug` is what a send names, but it is null on an unslugged device.
+
+    The id is accepted anywhere a slug is, so the fallback keeps a device
+    registered before slugs existed selectable rather than hiding it.
+    """
+    with aioresponses() as mocked:
+        mocked.get(
+            APPLICATION_DEVICES_URL,
+            payload={
+                "devices": [
+                    {
+                        "id": "dev_1",
+                        "name": "Slugged",
+                        "slug": "slugged",
+                        "platform": "ios",
+                    },
+                    {
+                        "id": "dev_2",
+                        "name": "Unslugged",
+                        "slug": None,
+                        "platform": "ios",
+                    },
+                ]
+            },
+        )
+        devices = await client.async_list_devices()
+
+    assert [device.target for device in devices] == ["slugged", "dev_2"]
+
+
+async def test_list_devices_labels_a_nameless_device_by_its_target(
+    client: PushCloudClient,
+) -> None:
+    """`name` is nullable too, and a picker row with a blank label is unpickable."""
+    with aioresponses() as mocked:
+        mocked.get(
+            APPLICATION_DEVICES_URL,
+            payload={
+                "devices": [
+                    {"id": "dev_1", "name": None, "slug": "kitchen", "platform": "ios"}
+                ]
+            },
+        )
+        devices = await client.async_list_devices()
+
+    assert devices[0].label == "kitchen"
+
+
+async def test_list_devices_accepts_an_account_with_no_devices(
+    client: PushCloudClient,
+) -> None:
+    """Nobody has signed in on a phone yet. An empty list, not an error."""
+    with aioresponses() as mocked:
+        mocked.get(APPLICATION_DEVICES_URL, payload={"devices": []})
+        assert await client.async_list_devices() == []
+
+
+async def test_list_devices_sends_the_token_as_a_bearer(
+    client: PushCloudClient,
+) -> None:
+    """The same `pca_` credential, and no other."""
+    with aioresponses() as mocked:
+        mocked.get(APPLICATION_DEVICES_URL, payload={"devices": []})
+        await client.async_list_devices()
+
+    request = next(iter(mocked.requests.values()))[0]
+    assert request.kwargs["headers"]["Authorization"] == f"Bearer {TOKEN}"
+
+
+async def test_list_devices_maps_a_401_to_an_auth_error(
+    client: PushCloudClient,
+) -> None:
+    """A rotated token on this path is the same problem it is on every other."""
+    with aioresponses() as mocked:
+        mocked.get(
+            APPLICATION_DEVICES_URL,
+            status=401,
+            payload=error_body("INVALID_APP_TOKEN", "Invalid application token"),
+        )
+        with pytest.raises(PushCloudAuthError):
+            await client.async_list_devices()
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        {"body": "<html>hello from your captive portal</html>"},
+        {"payload": {}},
+        {"payload": {"devices": None}},
+        {"payload": {"devices": {"dev_1": "Phone"}}},
+        {"payload": {"devices": ["dev_1"]}},
+        {"payload": {"devices": [{"name": "Phone", "slug": "phone"}]}},
+        {"payload": {"devices": [{"id": 17, "name": "Phone", "slug": "phone"}]}},
+        {"payload": {"devices": [{"id": "dev_1", "name": 17, "slug": "phone"}]}},
+        {"payload": {"devices": [{"id": "dev_1", "name": "Phone", "slug": 17}]}},
+    ],
+)
+async def test_a_device_list_of_the_wrong_shape_is_a_connection_error(
+    client: PushCloudClient, response: dict
+) -> None:
+    """Same contract as `async_get_application`: our exceptions, never a TypeError.
+
+    A partial list is deliberately not a thing this returns. Dropping the rows
+    it could not read would present a picker missing a device with nothing
+    saying so, and someone would conclude their phone had unregistered.
+    """
+    with aioresponses() as mocked:
+        mocked.get(APPLICATION_DEVICES_URL, status=200, **response)
+        with pytest.raises(PushCloudConnectionError):
+            await client.async_list_devices()

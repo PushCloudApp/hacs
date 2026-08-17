@@ -16,8 +16,15 @@ DATA_HASS_CONFIG: Final = "pushcloud_hass_config"
 # design and a misleading key name would erode it.
 CONF_APPLICATION_ID: Final = "application_id"
 
+# Entry *options* key, not entry data: the devices to send to are a preference the
+# user changes afterwards, where the token and the application id are what the
+# entry is. Empty or absent means every device on the account, which is what a
+# send with no `device` field does and what every entry did before this existed.
+CONF_DEVICES: Final = "devices"
+
 # `data:` keys accepted on a notify call, each mapping to the same-named field
 # on POST /v1/messages.
+ATTR_DEVICE: Final = "device"
 ATTR_PRIORITY: Final = "priority"
 ATTR_SOUND: Final = "sound"
 ATTR_URL: Final = "url"

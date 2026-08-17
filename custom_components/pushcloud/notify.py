@@ -1,8 +1,12 @@
 """The PushCloud notify service.
 
-One service per config entry, sending to that entry's one application. There is
-no `targets` mechanism and no slug arithmetic - the entry already names exactly
-one destination.
+One service per config entry, sending to that entry's one application.
+
+Still no `targets` mechanism, even now that an entry can be narrowed to some of
+the account's devices. Home Assistant's targets would spawn a service name per
+device, so an automation would hard-code the phone it sends to and a new phone
+would need every automation edited. The devices go in the payload instead, so the
+choice stays one setting in one place.
 """
 
 from __future__ import annotations
@@ -21,7 +25,14 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .api import PushCloudAuthError, PushCloudClient, PushCloudError
-from .const import ATTR_PRIORITY, ATTR_SOUND, ATTR_URL, ATTR_URL_TITLE
+from .const import (
+    ATTR_DEVICE,
+    ATTR_PRIORITY,
+    ATTR_SOUND,
+    ATTR_URL,
+    ATTR_URL_TITLE,
+    CONF_DEVICES,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,7 +42,13 @@ _LOGGER = logging.getLogger(__name__)
 # `actions`, `attachment_key`, `expires_in`, `scheduled_for` and `encrypted`
 # are deliberately absent - they are a v2 design, and this tuple is the one
 # place that has to change when they arrive.
-SUPPORTED_DATA_KEYS = (ATTR_PRIORITY, ATTR_SOUND, ATTR_URL, ATTR_URL_TITLE)
+SUPPORTED_DATA_KEYS = (
+    ATTR_DEVICE,
+    ATTR_PRIORITY,
+    ATTR_SOUND,
+    ATTR_URL,
+    ATTR_URL_TITLE,
+)
 
 
 async def async_get_service(
@@ -96,10 +113,19 @@ class PushCloudNotificationService(BaseNotificationService):
             # lands in the automation trace.
             raise HomeAssistantError(str(err)) from err
 
-    @staticmethod
-    def _payload(message: str, kwargs: dict[str, Any]) -> dict[str, Any]:
+    def _payload(self, message: str, kwargs: dict[str, Any]) -> dict[str, Any]:
         """Turn a notify call into a POST /v1/messages body."""
         payload: dict[str, Any] = {"message": message}
+
+        # The entry's chosen devices, read live rather than captured at setup so
+        # changing them in the options flow takes effect without a reload - a
+        # reload would re-register the notify service, and there is no reason to
+        # disturb an automation mid-send over a preference.
+        #
+        # Empty means every device on the account: that is what omitting the
+        # field does, and what every entry did before this option existed.
+        if devices := self._entry.options.get(CONF_DEVICES):
+            payload[ATTR_DEVICE] = ",".join(devices)
 
         # Only when the caller actually set one. Home Assistant defaults the
         # title to "Home Assistant", and sending that would head every
@@ -110,6 +136,10 @@ class PushCloudNotificationService(BaseNotificationService):
         data = kwargs.get(ATTR_DATA) or {}
         for key in SUPPORTED_DATA_KEYS:
             if key in data:
+                # `device` is in this tuple, so a per-call one lands after the
+                # option above and wins. That is the intended precedence: the
+                # option is a default for the entry, and an automation that names
+                # its own target means it.
                 payload[key] = data[key]
 
         if unknown := set(data) - set(SUPPORTED_DATA_KEYS):
