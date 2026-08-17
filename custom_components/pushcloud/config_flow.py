@@ -1,9 +1,13 @@
-"""Config flow for PushCloud.
+"""Config and options flows for PushCloud.
 
 One field, one call. The token names its own application via
 `GET /v1/applications/me`, which supplies both the entry's title and its
 unique id - so the user never types a display name and can never mistype one
 into a service name they then have to live with.
+
+The options flow that follows works the same way: it lists the account's devices
+from `GET /v1/applications/me/devices` and shows them as a picker, rather than
+asking anyone to type a device name they would have to remember exactly.
 """
 
 from __future__ import annotations
@@ -13,17 +17,30 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.const import CONF_NAME, CONF_TOKEN
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
 
 from .api import (
     Application,
     PushCloudAuthError,
     PushCloudClient,
     PushCloudConnectionError,
+    PushCloudError,
 )
-from .const import CONF_APPLICATION_ID, DOMAIN
+from .const import CONF_APPLICATION_ID, CONF_DEVICES, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -34,6 +51,12 @@ class PushCloudConfigFlow(ConfigFlow, domain=DOMAIN):
     """Turn an application token into a config entry."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(entry: ConfigEntry) -> PushCloudOptionsFlow:
+        """Offer the Configure button that picks which devices get notified."""
+        return PushCloudOptionsFlow()
 
     async def _async_identify(
         self, token: str, errors: dict[str, str]
@@ -111,4 +134,80 @@ class PushCloudConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm", data_schema=STEP_SCHEMA, errors=errors
+        )
+
+
+class PushCloudOptionsFlow(OptionsFlow):
+    """Choose which of the account's devices this entry's notifications go to.
+
+    One step, and the step *is* the device list - which is why every failure here
+    aborts rather than re-showing a form. A form with an empty picker invites
+    somebody to save "no devices chosen", and that means the opposite of what they
+    would intend: no choice is how you say "all of them".
+    """
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show the account's devices, and save the ones ticked."""
+        if user_input is not None:
+            return self.async_create_entry(
+                data={CONF_DEVICES: user_input[CONF_DEVICES]}
+            )
+
+        # Built from `entry.data`, not from the client on `runtime_data`. An entry
+        # that failed to load has no runtime data, and being unable to change this
+        # setting because the network happened to be down at startup would be a
+        # dead end with no way out but deleting the entry.
+        client = PushCloudClient(
+            async_get_clientsession(self.hass), self.config_entry.data[CONF_TOKEN]
+        )
+        try:
+            devices = await client.async_list_devices()
+        except PushCloudAuthError:
+            return self.async_abort(reason="invalid_auth")
+        except PushCloudError:
+            return self.async_abort(reason="cannot_connect")
+        except Exception:
+            _LOGGER.exception("Unexpected error listing PushCloud devices")
+            return self.async_abort(reason="unknown")
+
+        if not devices:
+            return self.async_abort(reason="no_devices")
+
+        targets = {device.target for device in devices}
+        # Anything saved whose device has since been deleted is dropped rather
+        # than pre-ticked. The selector refuses a value outside its options, so
+        # keeping it would make the form unsubmittable - the one person who most
+        # needs to change this setting would be the one who could not.
+        chosen = [
+            target
+            for target in self.config_entry.options.get(CONF_DEVICES) or []
+            if target in targets
+        ]
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_DEVICES): SelectSelector(
+                            SelectSelectorConfig(
+                                options=[
+                                    SelectOptionDict(
+                                        value=device.target, label=device.label
+                                    )
+                                    for device in devices
+                                ],
+                                multiple=True,
+                                # Not a sorted dropdown: the server orders by slug
+                                # already, and `custom_value` is off so nobody can
+                                # type a target that does not exist.
+                                mode=SelectSelectorMode.LIST,
+                            )
+                        )
+                    }
+                ),
+                {CONF_DEVICES: chosen},
+            ),
         )

@@ -31,5 +31,25 @@
         "description": "Notifications are sent to the phones signed in to your PushCloud account."
       }
     }
+  },
+  "options": {
+    "abort": {
+      "cannot_connect": "Could not reach PushCloud to list your devices. Try again in a moment.",
+      "invalid_auth": "PushCloud no longer accepts this application token, so it cannot list your devices. Re-authenticate the integration first.",
+      "no_devices": "This PushCloud account has no devices yet. Sign in to the PushCloud app on a phone, then come back.",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "step": {
+      "init": {
+        "data": {
+          "devices": "Devices"
+        },
+        "data_description": {
+          "devices": "Tick nothing to notify every device on the account, which is what this entry does today. An automation can still name its own target with 'device' under 'data'."
+        },
+        "description": "Choose which of your devices get notifications from this application.",
+        "title": "Notification devices"
+      }
+    }
   }
 }
